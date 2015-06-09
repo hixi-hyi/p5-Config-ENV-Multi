@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Config::ENV::Multi 'ENV';
 
-config '*' => {
+common {
     cnf => '/etc/my.cnf',
 };
 
@@ -20,7 +20,7 @@ use Test::Deep;
 
 undef $ENV{ENV};
 cmp_deeply +__PACKAGE__->current, {
-    cnf => '/etc/my.cnf',
+    cnf     => '/etc/my.cnf',
 };
 
 $ENV{ENV}    = 'prod';

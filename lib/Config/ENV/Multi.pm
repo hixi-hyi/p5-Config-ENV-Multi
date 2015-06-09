@@ -20,7 +20,7 @@ sub import {
 
         push @{"$package\::ISA"}, __PACKAGE__;
 
-        for my $method (qw/common config env rule/) {
+        for my $method (qw/common config/) {
             *{"$package\::$method"} = \&{__PACKAGE__ . "::" . $method}
         }
         my $mode = $opts{rule} ? 'rule': 'env';
@@ -28,16 +28,16 @@ sub import {
             any   => '*',
             unset => '!',
         };
+        $envs = [$envs] unless ref $envs;
 
         no warnings 'once';
         ${"$package\::data"} = +{
-            specific     => { env => {}, rule => {} },
-            global_mode  => $mode, # env or rule
-            global_envs  => $envs,
-            current_envs => undef,
-            current_rule => undef,
-            rule         => $opts{rule},
-            wildcard     => $wildcard,
+            specific    => {},
+            global_mode => $mode, # env or rule
+            global_envs => $envs,
+            global_rule => $opts{rule},
+            wildcard    => $wildcard,
+            cache       => {},
         };
     } else {
         my %opts    = @_;
@@ -46,10 +46,6 @@ sub import {
            *{"$package\::$export"} = sub () { $class };
         }
     }
-}
-
-sub _parse_rule_env {
-    my $rule = shift;
 }
 
 # {ENV}_{REGION}
@@ -93,11 +89,19 @@ sub _data {
 sub _mode {
     my $package = shift;
     my $data = _data($package);
-    if ($data->{current_envs}) {
-        return 'env';
-    } else {
-        return $data->{global_mode};
-    }
+    return $data->{global_mode};
+}
+
+sub common {
+    my $package = caller(0);
+    my $hash = shift;
+    my $data = _data($package);
+    my $envs = $data->{global_envs};
+    $envs = [$envs] unless ref $envs;
+    my $any  = $data->{wildcard}{any};
+    my $name = __envs2key([ map { "$any" } @{$envs} ]);
+
+    _config_env($package, $name, $hash);
 }
 
 sub config {
@@ -114,28 +118,28 @@ sub _config_env {
     my $data = _data($package);
 
     my $name = __envs2key($envs);
-    my $current_env = __envs2key($data->{current_envs} || $data->{global_envs});
+    my $current_env = __envs2key($data->{global_envs});
 
-    $data->{specific}{env}{$current_env}{$name} = $hash;
+    $data->{specific}{$current_env}{$name} = $hash;
 }
 
 sub _config_rule {
     my ($package, $rule, $hash) = @_;
     my $data = _data($package);
 
-    my $current_env = __envs2key($data->{current_envs} || $data->{global_envs});
-    my $target = __envs2key(__clip_rule($data->{rule}, $rule));
-    
-    $data->{specific}{rule}{$current_env}{$target} = $hash;
+    my $current_env = __envs2key($data->{global_envs});
+    my $target = __envs2key(__clip_rule($data->{global_rule}, $rule));
+
+    $data->{specific}{$current_env}{$target} = $hash;
 }
 
 sub current {
-    my ($package) = @_;
+    my $package = shift;
     my $data = _data($package);
-    use Data::Dumper::Names; printf("[%s]\n%s \n",(caller 0)[3],Dumper($data));
 
-    my $vals = +{
-        %{ _env_value($package) || {} },
+    my $cache_key = __envs2key([map { $ENV{$_} } @{ $data->{global_envs} }]);
+    my $vals = $data->{cache}->{$cache_key} ||= +{
+        %{ _value($package) || {} },
     };
 }
 
@@ -162,9 +166,9 @@ sub __any_dataset {
     return \@allenvs;
 }
 
-sub _env_value_specific {
+sub _value_specific {
     my ($package) = shift;
-    my $envs = _data($package)->{specific}{env};
+    my $envs = _data($package)->{specific};
     my %values;
     for my $key (keys %{$envs})  {
         my $compiled = __envs2key([map { $ENV{$_} } @{ __key2envs($key) }]);
@@ -173,9 +177,9 @@ sub _env_value_specific {
     return \%values;
 }
 
-sub _env_value_any {
+sub _value_any {
     my ($package) = shift;
-    my $envs = _data($package)->{specific}{env};
+    my $envs = _data($package)->{specific};
     my $wildcard = _data($package)->{wildcard}{any};
     my %values;
     for my $key (keys %{$envs})  {
@@ -187,12 +191,12 @@ sub _env_value_any {
     return \%values;
 }
 
-sub _env_value {
+sub _value {
     my ($package) = shift;
-    my $envs = _data($package)->{specific}{env};
+    my $envs = _data($package)->{specific};
 
-    my $specific = _env_value_specific($package);
-    my $any      = _env_value_any($package);
+    my $specific = _value_specific($package);
+    my $any      = _value_any($package);
 
     return {
         %{ $any },
