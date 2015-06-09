@@ -1,6 +1,5 @@
 use strict;
 use Test::More;
-use Test::Deep;
 use Test::Clear;
 use Config::ENV::Multi;
 
@@ -11,7 +10,7 @@ case '{template} => {rule}' => {
     rule     => 'prod_jp',
 }, sub {
     my $rules = $method->($_[0]->{template}, $_[0]->{rule});
-    cmp_deeply $rules, [qw/prod jp/];
+    is_deeply $rules, [qw/prod jp/];
 };
 
 case '{template} => {rule}' => {
@@ -19,7 +18,7 @@ case '{template} => {rule}' => {
     rule     => 'prod%%jp',
 }, sub {
     my $rules = $method->($_[0]->{template}, $_[0]->{rule});
-    cmp_deeply $rules, [qw/prod jp/];
+    is_deeply $rules, [qw/prod jp/];
 };
 
 case '{template} => {rule}' => {
@@ -27,7 +26,7 @@ case '{template} => {rule}' => {
     rule     => 'prod_jp_prod',
 }, sub {
     my $rules = $method->($_[0]->{template}, $_[0]->{rule});
-    cmp_deeply $rules, [qw/prod jp prod/];
+    is_deeply $rules, [qw/prod jp prod/];
 };
 
 done_testing;

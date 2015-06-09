@@ -151,6 +151,11 @@ sub current {
     };
 }
 
+sub param {
+    my ($package, $name) = @_;
+    $package->current->{$name};
+}
+
 sub __embeded {
     my ($caption, $dataset) = @_;
     for my $key (keys $dataset) {

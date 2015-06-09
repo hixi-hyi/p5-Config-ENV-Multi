@@ -33,6 +33,7 @@ cmp_deeply +__PACKAGE__->current, {
     cnf     => '/etc/my.cnf',
     db_host => 'localhost',
 };
+is __PACKAGE__->param('db_host'), 'localhost';
 
 $ENV{ENV}    = 'prod';
 $ENV{REGION} = 'jp';
