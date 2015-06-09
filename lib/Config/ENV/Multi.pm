@@ -2,6 +2,7 @@ package Config::ENV::Multi;
 use 5.008001;
 use strict;
 use warnings;
+use Carp qw/croak/;
 
 our $VERSION = "0.01";
 
@@ -21,7 +22,7 @@ sub import {
 
         push @{"$package\::ISA"}, __PACKAGE__;
 
-        for my $method (qw/common config any unset/) {
+        for my $method (qw/common config any unset parent/) {
             *{"$package\::$method"} = \&{__PACKAGE__ . "::" . $method}
         }
 
@@ -51,6 +52,34 @@ sub import {
            *{"$package\::$export"} = sub () { $class };
         }
     }
+}
+
+# copy from Config::ENV
+sub load ($) { ## no critic
+    my $filename = shift;
+    my $hash = do "$filename";
+
+    croak $@ if $@;
+    croak $^E unless defined $hash;
+    unless (ref($hash) eq 'HASH') {
+        croak "$filename does not return HashRef.";
+    }
+
+    wantarray ? %$hash : $hash;
+}
+
+sub parent ($) { ## no critic
+    my $package = caller(0);
+    my $e_or_r = shift;
+
+    my $target;
+    my $data = _data($package);
+    if ($data->{mode} eq 'env') {
+        $target = __envs2key($e_or_r);
+    } else {
+        $target = __envs2key(__clip_rule($data->{rule}, $e_or_r));
+    }
+    %{ $data->{specific}->{$target} || {} };
 }
 
 sub any {
@@ -283,7 +312,7 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
 
 Config::ENV の複数 Env 対応版。
 
-Config::ENV にある default / load / parent / export / local にはまだ対応していない。
+Config::ENV にある default / export / local にはまだ対応していない。
 
 any を使って、 dev なら debug mode とかそういうのが出来る。
 
