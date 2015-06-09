@@ -15,7 +15,7 @@ sub import {
         my %opts    = @_;
         #
         # rule => '{ENV}_{REGION}',
-        # wildcard => { ignore => '#', unset => '&' },
+        # wildcard => { any => '*', unset => '&' },
         #
 
         push @{"$package\::ISA"}, __PACKAGE__;
@@ -35,6 +35,8 @@ sub import {
             global_mode  => $mode, # env or rule
             global_envs  => $envs,
             current_envs => undef,
+            current_rule => undef,
+            rule         => $opts{rule},
             wildcard     => $wildcard,
         };
     } else {
@@ -44,6 +46,41 @@ sub import {
            *{"$package\::$export"} = sub () { $class };
         }
     }
+}
+
+sub _parse_rule_env {
+    my $rule = shift;
+}
+
+# {ENV}_{REGION}
+# => ['ENV', 'REGION]
+sub __parse_rule {
+    my $rule = shift;
+    return [
+        grep { defined && length }
+        map {
+            /^\{(.+?)\}$/ ? $1 : undef
+        }
+        grep { defined && length }
+        split /(\{.+?\})/, $rule
+    ];
+}
+
+# {ENV}_{REGION} + 'prod_jp'
+# => ['prod', 'jp']
+sub __clip_rule {
+    my ($template, $rule) = @_;
+    my $spliter = [
+        grep { defined && length }
+        map {
+            /^\{(.+?)\}$/ ? undef : $_
+        }
+        grep { defined && length }
+        split /(\{.+?\})/, $template
+    ];
+    my $pattern = '(.*)' . ( join '(.*)', @{$spliter} ) . '(.*)';
+    my @clip = ( $rule =~ /$pattern/g );
+    return \@clip;
 }
 
 sub _data {
@@ -63,15 +100,6 @@ sub _mode {
     }
 }
 
-sub _config_env {
-    my ($package, $envs, $hash) = @_;
-    my $name = __envs2key($envs);
-
-    my $data = _data($package);
-    my $current_env = __envs2key($data->{current_envs} || $data->{global_envs});
-    $data->{specific}{env}{$current_env}{$name} = $hash;
-}
-
 sub config {
     my $package = caller(0);
     if (_mode($package) eq 'env') {
@@ -81,9 +109,30 @@ sub config {
     }
 }
 
+sub _config_env {
+    my ($package, $envs, $hash) = @_;
+    my $data = _data($package);
+
+    my $name = __envs2key($envs);
+    my $current_env = __envs2key($data->{current_envs} || $data->{global_envs});
+
+    $data->{specific}{env}{$current_env}{$name} = $hash;
+}
+
+sub _config_rule {
+    my ($package, $rule, $hash) = @_;
+    my $data = _data($package);
+
+    my $current_env = __envs2key($data->{current_envs} || $data->{global_envs});
+    my $target = __envs2key(__clip_rule($data->{rule}, $rule));
+    
+    $data->{specific}{rule}{$current_env}{$target} = $hash;
+}
+
 sub current {
     my ($package) = @_;
     my $data = _data($package);
+    use Data::Dumper::Names; printf("[%s]\n%s \n",(caller 0)[3],Dumper($data));
 
     my $vals = +{
         %{ _env_value($package) || {} },

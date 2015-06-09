@@ -1,22 +1,17 @@
 package MyConfig;
 use strict;
 use warnings;
-use Config::ENV::Multi [qw/ENV REGION/],
-    rule => '{ENV}_{REGION}';
+use Config::ENV::Multi 'ENV';
 
-config '*_*' => sub {
+config '*' => {
     cnf => '/etc/my.cnf',
 };
 
-config 'prod_jp' => {
+config 'prod' => {
     db_host => 'jp.local',
 };
 
-config 'prod_us' => {
-    db_host => 'us.local',
-};
-
-config 'dev_*' => {
+config 'dev' => {
     db_host => 'localhost',
 };
 
@@ -24,28 +19,21 @@ use Test::More;
 use Test::Deep;
 
 undef $ENV{ENV};
-undef $ENV{REGION};
-
 cmp_deeply +__PACKAGE__->current, {
     cnf => '/etc/my.cnf',
 };
 
-$ENV{ENV}='prod';
-undef $ENV{REGION};
-
-cmp_deeply +__PACKAGE__->current, {
-    cnf => '/etc/my.cnf',
-    db_host => 'prod_',
-};
-
-$ENV{ENV}='prod';
-$ENV{REGION}='jp';
-
-
+$ENV{ENV}    = 'prod';
 cmp_deeply +__PACKAGE__->current, {
     cnf => '/etc/my.cnf',
     db_host => 'jp.local',
 };
 
-done_testing;
+$ENV{ENV}    = 'dev';
+cmp_deeply +__PACKAGE__->current, {
+    cnf => '/etc/my.cnf',
+    db_host => 'localhost',
+};
 
+
+done_testing;
