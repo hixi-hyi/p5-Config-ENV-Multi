@@ -32,12 +32,12 @@ sub import {
 
         no warnings 'once';
         ${"$package\::data"} = +{
-            specific    => {},
-            global_mode => $mode, # env or rule
-            global_envs => $envs,
-            global_rule => $opts{rule},
-            wildcard    => $wildcard,
-            cache       => {},
+            specific => {},
+            mode     => $mode, # env or rule
+            envs     => $envs,
+            rule     => $opts{rule},
+            wildcard => $wildcard,
+            cache    => {},
         };
     } else {
         my %opts    = @_;
@@ -89,14 +89,14 @@ sub _data {
 sub _mode {
     my $package = shift;
     my $data = _data($package);
-    return $data->{global_mode};
+    return $data->{mode};
 }
 
 sub common {
     my $package = caller(0);
     my $hash = shift;
     my $data = _data($package);
-    my $envs = $data->{global_envs};
+    my $envs = $data->{envs};
     $envs = [$envs] unless ref $envs;
     my $any  = $data->{wildcard}{any};
     my $name = __envs2key([ map { "$any" } @{$envs} ]);
@@ -118,26 +118,24 @@ sub _config_env {
     my $data = _data($package);
 
     my $name = __envs2key($envs);
-    my $current_env = __envs2key($data->{global_envs});
 
-    $data->{specific}{$current_env}{$name} = $hash;
+    $data->{specific}{$name} = $hash;
 }
 
 sub _config_rule {
     my ($package, $rule, $hash) = @_;
     my $data = _data($package);
 
-    my $current_env = __envs2key($data->{global_envs});
-    my $target = __envs2key(__clip_rule($data->{global_rule}, $rule));
+    my $target = __envs2key(__clip_rule($data->{rule}, $rule));
 
-    $data->{specific}{$current_env}{$target} = $hash;
+    $data->{specific}{$target} = $hash;
 }
 
 sub current {
     my $package = shift;
     my $data = _data($package);
 
-    my $cache_key = __envs2key([map { $ENV{$_} } @{ $data->{global_envs} }]);
+    my $cache_key = __envs2key([map { $ENV{$_} } @{ $data->{envs} }]);
     my $vals = $data->{cache}->{$cache_key} ||= +{
         %{ _value($package) || {} },
     };
@@ -169,31 +167,25 @@ sub __any_dataset {
 sub _value_specific {
     my ($package) = shift;
     my $envs = _data($package)->{specific};
-    my %values;
-    for my $key (keys %{$envs})  {
-        my $compiled = __envs2key([map { $ENV{$_} } @{ __key2envs($key) }]);
-        %values = ( %values, %{ $envs->{$key}{$compiled} || {}} );
-    }
-    return \%values;
+    my $target = __envs2key([map { $ENV{$_} } @{ _data($package)->{envs} } ]);
+    return $envs->{$target} || {};
 }
 
 sub _value_any {
     my ($package) = shift;
     my $envs = _data($package)->{specific};
     my $wildcard = _data($package)->{wildcard}{any};
+    my $key = __envs2key(_data($package)->{envs});
     my %values;
-    for my $key (keys %{$envs})  {
-        for my $dataset (@{__any_dataset($key, $wildcard)}) {
-            my $compiled = __embeded($key, $dataset);
-            %values = ( %values, %{ $envs->{$key}{$compiled} || {} } );
-        }
+    for my $dataset (@{__any_dataset($key, $wildcard)}) {
+        my $compiled = __embeded($key, $dataset);
+        %values = ( %values, %{ $envs->{$compiled} || {} } );
     }
     return \%values;
 }
 
 sub _value {
     my ($package) = shift;
-    my $envs = _data($package)->{specific};
 
     my $specific = _value_specific($package);
     my $any      = _value_any($package);
