@@ -99,9 +99,9 @@ sub __embeded {
     return $caption;
 }
 
-sub __asterisk_dataset {
+sub __any_dataset {
     my ($caption, $wildcard) = @_;
-    my $asterisks = [];
+    my $anys = [];
     my $envs = __key2envs($caption);
     my @allenvs = ();
     push @allenvs , { map { $_ => $wildcard } @$envs };
@@ -124,13 +124,13 @@ sub _env_value_specific {
     return \%values;
 }
 
-sub _env_value_asterisk {
+sub _env_value_any {
     my ($package) = shift;
     my $envs = _data($package)->{specific}{env};
     my $wildcard = _data($package)->{wildcard}{any};
     my %values;
     for my $key (keys %{$envs})  {
-        for my $dataset (@{__asterisk_dataset($key, $wildcard)}) {
+        for my $dataset (@{__any_dataset($key, $wildcard)}) {
             my $compiled = __embeded($key, $dataset);
             %values = ( %values, %{ $envs->{$key}{$compiled} || {} } );
         }
@@ -143,10 +143,10 @@ sub _env_value {
     my $envs = _data($package)->{specific}{env};
 
     my $specific = _env_value_specific($package);
-    my $asterisk = _env_value_asterisk($package);
+    my $any      = _env_value_any($package);
 
     return {
-        %{ $asterisk },
+        %{ $any },
         %{ $specific },
     };
 }
