@@ -1,5 +1,5 @@
 {
-   "abstract" : "It's new $module",
+   "abstract" : "Config::ENV supported Multi ENV",
    "author" : [
       "Hiroyoshi Houchi <git@hixi-hyi.com>"
    ],

@@ -15,21 +15,20 @@ config [qw/prod us/] => {
     db_host => 'us.local',
 };
 
-config [qw/dev */] => {
+config ['dev', any] => {
     db_host => 'localhost',
 };
 
-config [qw/! !/] => {
+config [unset, unset] => {
     db_host => 'localhost',
 };
 
 use Test::More;
-use Test::Deep;
 
 undef $ENV{ENV};
 undef $ENV{REGION};
 
-cmp_deeply +__PACKAGE__->current, {
+is_deeply +__PACKAGE__->current, {
     cnf     => '/etc/my.cnf',
     db_host => 'localhost',
 };
@@ -37,7 +36,7 @@ cmp_deeply +__PACKAGE__->current, {
 $ENV{ENV}    = 'prod';
 $ENV{REGION} = 'jp';
 
-cmp_deeply +__PACKAGE__->current, {
+is_deeply +__PACKAGE__->current, {
     cnf => '/etc/my.cnf',
     db_host => 'jp.local',
 };
@@ -45,7 +44,7 @@ cmp_deeply +__PACKAGE__->current, {
 $ENV{ENV}    = 'prod';
 $ENV{REGION} = 'us';
 
-cmp_deeply +__PACKAGE__->current, {
+is_deeply +__PACKAGE__->current, {
     cnf => '/etc/my.cnf',
     db_host => 'us.local',
 };
@@ -53,7 +52,7 @@ cmp_deeply +__PACKAGE__->current, {
 $ENV{ENV}    = 'dev';
 $ENV{REGION} = 'jp';
 
-cmp_deeply +__PACKAGE__->current, {
+is_deeply +__PACKAGE__->current, {
     cnf => '/etc/my.cnf',
     db_host => 'localhost',
 };
@@ -61,7 +60,7 @@ cmp_deeply +__PACKAGE__->current, {
 $ENV{ENV}    = 'dev';
 $ENV{REGION} = 'us';
 
-cmp_deeply +__PACKAGE__->current, {
+is_deeply +__PACKAGE__->current, {
     cnf => '/etc/my.cnf',
     db_host => 'localhost',
 };

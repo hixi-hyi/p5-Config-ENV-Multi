@@ -15,20 +15,25 @@ sub import {
         my %opts    = @_;
         #
         # rule => '{ENV}_{REGION}',
-        # wildcard => { any => '*', unset => '&' },
+        # any => '*',
+        # unset => '&';
         #
 
         push @{"$package\::ISA"}, __PACKAGE__;
 
-        for my $method (qw/common config/) {
+        for my $method (qw/common config any unset/) {
             *{"$package\::$method"} = \&{__PACKAGE__ . "::" . $method}
         }
-        my $mode = $opts{rule} ? 'rule': 'env';
-        my $wildcard = {
+
+        my %wildcard = (
             any   => '*',
             unset => '!',
-        };
+        );
+        $wildcard{any}   = $opts{any}   if $opts{any};
+        $wildcard{unset} = $opts{unset} if $opts{unset};
+
         $envs = [$envs] unless ref $envs;
+        my $mode = $opts{rule} ? 'rule': 'env';
 
         no warnings 'once';
         ${"$package\::data"} = +{
@@ -36,7 +41,7 @@ sub import {
             mode     => $mode, # env or rule
             envs     => $envs,
             rule     => $opts{rule},
-            wildcard => $wildcard,
+            wildcard => \%wildcard,
             cache    => {},
         };
     } else {
@@ -46,6 +51,16 @@ sub import {
            *{"$package\::$export"} = sub () { $class };
         }
     }
+}
+
+sub any {
+    my $package = caller(0);
+    _data($package)->{wildcard}{any};
+}
+
+sub unset {
+    my $package = caller(0);
+    _data($package)->{wildcard}{unset};
 }
 
 # {ENV}_{REGION}
@@ -86,12 +101,6 @@ sub _data {
     ${"$package\::data"};
 }
 
-sub _mode {
-    my $package = shift;
-    my $data = _data($package);
-    return $data->{mode};
-}
-
 sub common {
     my $package = caller(0);
     my $hash = shift;
@@ -106,7 +115,7 @@ sub common {
 
 sub config {
     my $package = caller(0);
-    if (_mode($package) eq 'env') {
+    if (_data($package)->{mode} eq 'env') {
         return _config_env($package, @_);
     } else {
         return _config_rule($package, @_);
@@ -134,8 +143,9 @@ sub _config_rule {
 sub current {
     my $package = shift;
     my $data = _data($package);
+    my $wildcard = $data->{wildcard}->{unset};
 
-    my $cache_key = __envs2key([map { $ENV{$_} } @{ $data->{envs} }]);
+    my $cache_key = __envs2key([map { defined $ENV{$_} ? $ENV{$_} : $wildcard  } @{ $data->{envs} }]);
     my $vals = $data->{cache}->{$cache_key} ||= +{
         %{ _value($package) || {} },
     };
@@ -165,14 +175,31 @@ sub __any_dataset {
 }
 
 sub _value_specific {
-    my ($package) = shift;
+    my $package = shift;
     my $envs = _data($package)->{specific};
-    my $target = __envs2key([map { $ENV{$_} } @{ _data($package)->{envs} } ]);
+    my $wildcard = _data($package)->{wildcard}->{unset};
+    my $target = __envs2key([
+        map { defined $ENV{$_} ? $ENV{$_} : $wildcard }
+        @{ _data($package)->{envs} }
+    ]);
     return $envs->{$target} || {};
 }
 
 sub _value_any {
-    my ($package) = shift;
+    my $package = shift;
+    my $envs = _data($package)->{specific};
+    my $wildcard = _data($package)->{wildcard}{any};
+    my $key = __envs2key(_data($package)->{envs});
+    my %values;
+    for my $dataset (@{__any_dataset($key, $wildcard)}) {
+        my $compiled = __embeded($key, $dataset);
+        %values = ( %values, %{ $envs->{$compiled} || {} } );
+    }
+    return \%values;
+}
+
+sub _value_unset {
+    my $package = shift;
     my $envs = _data($package)->{specific};
     my $wildcard = _data($package)->{wildcard}{any};
     my $key = __envs2key(_data($package)->{envs});
@@ -185,7 +212,7 @@ sub _value_any {
 }
 
 sub _value {
-    my ($package) = shift;
+    my $package = shift;
 
     my $specific = _value_specific($package);
     my $any      = _value_any($package);
@@ -199,15 +226,13 @@ sub _value {
 sub __envs2key {
     my $v = shift;
     $v = [$v] unless ref $v;
-    join '%%', grep { $_ if ($_) } @{$v};
+    join '@#%@#', grep { $_ if ($_) } @{$v};
 }
 
 sub __key2envs {
     my $f = shift;
-    [split '%%', $f];
+    [split '@#%@#', $f];
 }
-
-
 
 1;
 __END__
@@ -216,15 +241,46 @@ __END__
 
 =head1 NAME
 
-Config::ENV::Multi - It's new $module
+Config::ENV::Multi - Config::ENV supported Multi ENV
 
 =head1 SYNOPSIS
 
-    use Config::ENV::Multi;
+    package Config;
+    use Config::ENV::Multi [qw/ENV REGION/], any => ':any:', unset => ':unset:';
+
+    common {
+        # alias of [qw/:any: :any:/]
+        cnf => 'my.cnf',
+    };
+
+    config [qw/dev :any:/] => sub {
+        debug => 1,
+        db    => 'localhost',
+    };
+
+    config [qw/prod jp/] => sub {
+        db    => 'jp.localhost',
+    };
+
+    config [qw/prod us/] => sub {
+        db    => 'us.localhost',
+    };
+
+    Config->current;
+    # $ENV{ENV}=dev, $ENV{REGION}=jp
+    # {
+    #   cnf    => 'my.cnf',
+    #   debug  => 1,
+    #   db     => 'localhost',
+    # }
 
 =head1 DESCRIPTION
 
-Config::ENV::Multi is ...
+Config::ENV の複数 Env 対応版。
+
+Config::ENV にある default / load / parent / export / local にはまだ対応していない。
+
+any を使って、 dev なら debug mode とかそういうのが出来る。
 
 =head1 LICENSE
 
