@@ -52,6 +52,17 @@
       }
    },
    "release_status" : "unstable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/hixi-hyi/p5-Config-ENV-Multi/issues"
+      },
+      "homepage" : "https://github.com/hixi-hyi/p5-Config-ENV-Multi",
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/hixi-hyi/p5-Config-ENV-Multi.git",
+         "web" : "https://github.com/hixi-hyi/p5-Config-ENV-Multi"
+      }
+   },
    "version" : "0.01",
    "x_authority" : "cpan:HIXI"
 }

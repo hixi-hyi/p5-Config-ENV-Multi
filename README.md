@@ -9,6 +9,7 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
 
     common {
         # alias of [qw/:any: :any:/]
+        # alias of [any, any]
         cnf => 'my.cnf',
     };
 
@@ -37,7 +38,7 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
 
 Config::ENV の複数 Env 対応版。
 
-Config::ENV にある default / load / parent / export / local にはまだ対応していない。
+Config::ENV にある default / export / local にはまだ対応していない。
 
 any を使って、 dev なら debug mode とかそういうのが出来る。
 

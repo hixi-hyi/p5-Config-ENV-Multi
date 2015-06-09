@@ -284,6 +284,7 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
 
     common {
         # alias of [qw/:any: :any:/]
+        # alias of [any, any]
         cnf => 'my.cnf',
     };
 
