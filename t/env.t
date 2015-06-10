@@ -35,5 +35,14 @@ cmp_deeply +__PACKAGE__->current, {
     db_host => 'localhost',
 };
 
+package Foo;
+use strict;
+
+BEGIN { MyConfig->import(export => 'config') };
+
+undef $ENV{ENV};
+use Test::More;
+use Test::Deep;
+cmp_deeply config->current, { cnf => '/etc/my.cnf' };
 
 done_testing;

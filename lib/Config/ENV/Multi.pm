@@ -44,6 +44,7 @@ sub import {
             rule     => $opts{rule},
             wildcard => \%wildcard,
             cache    => {},
+            export   => $opts{export},
         };
     } else {
         my %opts    = @_;
