@@ -36,11 +36,11 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
 
 # DESCRIPTION
 
-Config::ENV の複数 Env 対応版。
+supported multi environment [Config::ENV](https://metacpan.org/pod/Config::ENV).
 
-Config::ENV にある default / export / local にはまだ対応していない。
+# SEE ALSO
 
-any を使って、 dev なら debug mode とかそういうのが出来る。
+[Config::ENV](https://metacpan.org/pod/Config::ENV)
 
 # LICENSE
 

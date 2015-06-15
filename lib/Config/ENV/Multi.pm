@@ -188,7 +188,7 @@ sub param {
 
 sub __embeded {
     my ($caption, $dataset) = @_;
-    for my $key (keys $dataset) {
+    for my $key (keys %{$dataset}) {
         next unless $dataset->{$key};
         $caption =~ s/$key/$dataset->{$key}/g;
     }
@@ -312,11 +312,11 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
 
 =head1 DESCRIPTION
 
-Config::ENV の複数 Env 対応版。
+supported multi environment L<Config::ENV>.
 
-Config::ENV にある default / export / local にはまだ対応していない。
+=head1 SEE ALSO
 
-any を使って、 dev なら debug mode とかそういうのが出来る。
+L<Config::ENV>
 
 =head1 LICENSE
 
