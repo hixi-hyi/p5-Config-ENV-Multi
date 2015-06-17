@@ -42,11 +42,13 @@
       },
       "runtime" : {
          "requires" : {
+            "Carp" : "0",
             "perl" : "5.008001"
          }
       },
       "test" : {
          "requires" : {
+            "Test::Clear" : "0",
             "Test::More" : "0.98"
          }
       }
@@ -63,6 +65,6 @@
          "web" : "https://github.com/hixi-hyi/p5-Config-ENV-Multi"
       }
    },
-   "version" : "0.01",
+   "version" : "0.02",
    "x_authority" : "cpan:HIXI"
 }
