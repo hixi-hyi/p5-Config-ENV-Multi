@@ -22,7 +22,7 @@ sub import {
 
         push @{"$package\::ISA"}, __PACKAGE__;
 
-        for my $method (qw/common config any unset parent/) {
+        for my $method (qw/common config any unset parent load/) {
             *{"$package\::$method"} = \&{__PACKAGE__ . "::" . $method}
         }
 
