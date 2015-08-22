@@ -3,7 +3,6 @@ use 5.008001;
 use strict;
 use warnings;
 use Carp qw/croak/;
-use List::Util qw/reduce/;
 
 our $VERSION = "0.02";
 
@@ -159,7 +158,7 @@ sub _config_env {
     $envs = [ $envs ] unless ref $envs;
 
     $data->{configs}{__envs2key($envs)} = Config::ENV::Multi::ConfigInstance->new(
-        order    => ( reduce { $a + $b } map { $_ ne $wildcard->{any} } @$envs ),
+        order    => 0 + ( grep { $_ ne $wildcard->{any} } @$envs ),
         pattern  => $envs,
         hash     => $hash,
         wildcard => $wildcard,
