@@ -3,6 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 use Carp qw/croak/;
+use List::Util qw/reduce/;
 
 our $VERSION = "0.02";
 
@@ -38,7 +39,7 @@ sub import {
 
         no warnings 'once';
         ${"$package\::data"} = +{
-            specific => {},
+            configs  => {},
             mode     => $mode, # env or rule
             envs     => $envs,
             rule     => $opts{rule},
@@ -80,7 +81,7 @@ sub parent ($) { ## no critic
     } else {
         $target = __envs2key(__clip_rule($data->{rule}, $e_or_r));
     }
-    %{ $data->{specific}->{$target} || {} };
+    %{ $data->{configs}{$target}->as_hashref || {} };
 }
 
 sub any {
@@ -138,9 +139,7 @@ sub common {
     my $envs = $data->{envs};
     $envs = [$envs] unless ref $envs;
     my $any  = $data->{wildcard}{any};
-    my $name = __envs2key([ map { "$any" } @{$envs} ]);
-
-    _config_env($package, $name, $hash);
+    _config_env($package, [ map { "$any" } @{$envs} ], $hash);
 }
 
 sub config {
@@ -154,20 +153,22 @@ sub config {
 
 sub _config_env {
     my ($package, $envs, $hash) = @_;
+
     my $data = _data($package);
+    my $wildcard = $data->{wildcard};
+    $envs = [ $envs ] unless ref $envs;
 
-    my $name = __envs2key($envs);
-
-    $data->{specific}{$name} = $hash;
+    $data->{configs}{__envs2key($envs)} = Config::ENV::Multi::ConfigInstance->new(
+        order    => ( reduce { $a + $b } map { $_ ne $wildcard->{any} } @$envs ),
+        pattern  => $envs,
+        hash     => $hash,
+        wildcard => $wildcard,
+    );
 }
 
 sub _config_rule {
     my ($package, $rule, $hash) = @_;
-    my $data = _data($package);
-
-    my $target = __envs2key(__clip_rule($data->{rule}, $rule));
-
-    $data->{specific}{$target} = $hash;
+    _config_env($package, __clip_rule(_data($package)->{rule}, $rule), $hash);
 }
 
 sub current {
@@ -175,9 +176,10 @@ sub current {
     my $data = _data($package);
     my $wildcard = $data->{wildcard}->{unset};
 
-    my $cache_key = __envs2key([map { defined $ENV{$_} ? $ENV{$_} : $wildcard  } @{ $data->{envs} }]);
-    my $vals = $data->{cache}->{$cache_key} ||= +{
-        %{ _value($package) || {} },
+    my $target_env = [ map { $ENV{$_} } @{ $data->{envs} } ];
+
+    my $vals = $data->{cache}->{__envs2key($target_env)} ||= +{
+        %{ _match($package, $target_env) }
     };
 }
 
@@ -269,7 +271,52 @@ sub __key2envs {
     [split '@#%@#', $f];
 }
 
+sub _match {
+    my ( $package, $target_envs ) = @_;
+
+    my $data = _data($package);
+
+    return +{
+        map  { %{ $_->as_hashref } }
+        grep { $_->match($target_envs) }
+        sort { $a->{order} - $b->{order} }
+        values %{ $data->{configs} }
+    };
+}
+
 1;
+
+package Config::ENV::Multi::ConfigInstance;
+use strict;
+use warnings;
+
+use List::MoreUtils qw/ all pairwise /;
+
+sub new {
+    my ( $class, %args ) = @_;
+
+    bless +{
+        order    => $args{order},
+        pattern  => $args{pattern},
+        hash     => $args{hash},
+        wildcard => $args{wildcard},
+    }, $class;
+}
+
+sub match {
+    my ( $self, $target ) = @_;
+
+    return all { $_ } pairwise {
+        $a eq $self->{wildcard}{any}   ?           1 :
+        $a eq $self->{wildcard}{unset} ? !defined $b :
+                                          defined $b && $b eq $a;
+    } @{ $self->{pattern} }, @{ $target };
+}
+
+sub as_hashref { $_[0]->{hash} }
+
+1;
+
 __END__
 
 =encoding utf-8
