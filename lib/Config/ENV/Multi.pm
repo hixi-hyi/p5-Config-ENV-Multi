@@ -6,6 +6,8 @@ use Carp qw/croak/;
 
 our $VERSION = "0.02";
 
+use constant DELIMITER => '@#%@#';
+
 sub import {
     my $class   = shift;
     my $package = caller(0);
@@ -173,7 +175,6 @@ sub _config_rule {
 sub current {
     my $package = shift;
     my $data = _data($package);
-    my $wildcard = $data->{wildcard}->{unset};
 
     my $target_env = [ map { $ENV{$_} } @{ $data->{envs} } ];
 
@@ -262,12 +263,12 @@ sub _value {
 sub __envs2key {
     my $v = shift;
     $v = [$v] unless ref $v;
-    join '@#%@#', grep { $_ if ($_) } @{$v};
+    join DELIMITER(), map { defined $_ ? $_ : '' } @{$v};
 }
 
 sub __key2envs {
     my $f = shift;
-    [split '@#%@#', $f];
+    [split DELIMITER(), $f];
 }
 
 sub _match {
