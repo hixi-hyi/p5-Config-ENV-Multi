@@ -13,16 +13,16 @@ Config::ENV::Multi - Config::ENV supported Multi ENV
         cnf => 'my.cnf',
     };
 
-    config [qw/dev :any:/] => {
+    config [qw/dev :any:/] => sub {
         debug => 1,
         db    => 'localhost',
     };
 
-    config [qw/prod jp/] => {
+    config [qw/prod jp/] => sub {
         db    => 'jp.localhost',
     };
 
-    config [qw/prod us/] => {
+    config [qw/prod us/] => sub {
         db    => 'us.localhost',
     };
 

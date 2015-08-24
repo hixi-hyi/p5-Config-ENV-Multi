@@ -4,7 +4,7 @@
       "Hiroyoshi Houchi <git@hixi-hyi.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Minilla/v2.3.0, CPAN::Meta::Converter version 2.142690",
+   "generated_by" : "Minilla/v1.0.0, CPAN::Meta::Converter version 2.140640",
    "license" : [
       "perl_5"
    ],
@@ -43,6 +43,7 @@
       "runtime" : {
          "requires" : {
             "Carp" : "0",
+            "List::MoreUtils" : "0",
             "perl" : "5.008001"
          }
       },
@@ -65,6 +66,9 @@
          "web" : "https://github.com/hixi-hyi/p5-Config-ENV-Multi"
       }
    },
-   "version" : "0.02",
-   "x_authority" : "cpan:HIXI"
+   "version" : "0.03",
+   "x_authority" : "cpan:HIXI",
+   "x_contributors" : [
+      "Tanaka Tatsuya <ta.ts.yt@gmail.com>"
+   ]
 }
