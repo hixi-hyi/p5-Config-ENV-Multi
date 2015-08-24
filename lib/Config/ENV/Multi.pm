@@ -6,6 +6,8 @@ use Carp qw/croak/;
 
 our $VERSION = "0.02";
 
+use constant DELIMITER => '@#%@#';
+
 sub import {
     my $class   = shift;
     my $package = caller(0);
@@ -38,7 +40,7 @@ sub import {
 
         no warnings 'once';
         ${"$package\::data"} = +{
-            specific => {},
+            configs  => {},
             mode     => $mode, # env or rule
             envs     => $envs,
             rule     => $opts{rule},
@@ -80,7 +82,7 @@ sub parent ($) { ## no critic
     } else {
         $target = __envs2key(__clip_rule($data->{rule}, $e_or_r));
     }
-    %{ $data->{specific}->{$target} || {} };
+    %{ $data->{configs}{$target}->as_hashref || {} };
 }
 
 sub any {
@@ -138,9 +140,7 @@ sub common {
     my $envs = $data->{envs};
     $envs = [$envs] unless ref $envs;
     my $any  = $data->{wildcard}{any};
-    my $name = __envs2key([ map { "$any" } @{$envs} ]);
-
-    _config_env($package, $name, $hash);
+    _config_env($package, [ map { "$any" } @{$envs} ], $hash);
 }
 
 sub config {
@@ -154,30 +154,32 @@ sub config {
 
 sub _config_env {
     my ($package, $envs, $hash) = @_;
+
     my $data = _data($package);
+    my $wildcard = $data->{wildcard};
+    $envs = [ $envs ] unless ref $envs;
 
-    my $name = __envs2key($envs);
-
-    $data->{specific}{$name} = $hash;
+    $data->{configs}{__envs2key($envs)} = Config::ENV::Multi::ConfigInstance->new(
+        order    => 0 + ( grep { $_ ne $wildcard->{any} } @$envs ),
+        pattern  => $envs,
+        hash     => $hash,
+        wildcard => $wildcard,
+    );
 }
 
 sub _config_rule {
     my ($package, $rule, $hash) = @_;
-    my $data = _data($package);
-
-    my $target = __envs2key(__clip_rule($data->{rule}, $rule));
-
-    $data->{specific}{$target} = $hash;
+    _config_env($package, __clip_rule(_data($package)->{rule}, $rule), $hash);
 }
 
 sub current {
     my $package = shift;
     my $data = _data($package);
-    my $wildcard = $data->{wildcard}->{unset};
 
-    my $cache_key = __envs2key([map { defined $ENV{$_} ? $ENV{$_} : $wildcard  } @{ $data->{envs} }]);
-    my $vals = $data->{cache}->{$cache_key} ||= +{
-        %{ _value($package) || {} },
+    my $target_env = [ map { $ENV{$_} } @{ $data->{envs} } ];
+
+    my $vals = $data->{cache}->{__envs2key($target_env)} ||= +{
+        %{ _match($package, $target_env) }
     };
 }
 
@@ -186,90 +188,63 @@ sub param {
     $package->current->{$name};
 }
 
-sub __embeded {
-    my ($caption, $dataset) = @_;
-    for my $key (keys %{$dataset}) {
-        next unless $dataset->{$key};
-        $caption =~ s/$key/$dataset->{$key}/g;
-    }
-    return $caption;
-}
-
-sub __any_dataset {
-    my ($caption, $wildcard) = @_;
-    my $anys = [];
-    my $envs = __key2envs($caption);
-    my @allenvs = ();
-    push @allenvs , { map { $_ => $wildcard } @$envs };
-    for my $target (@$envs) {
-        my $ast = { map { $_ => $wildcard } @$envs };
-        push @allenvs, { %$ast, $target => $ENV{$target} };
-    }
-
-    return \@allenvs;
-}
-
-sub _value_specific {
-    my $package = shift;
-    my $envs = _data($package)->{specific};
-    my $wildcard = _data($package)->{wildcard}->{unset};
-    my $target = __envs2key([
-        map { defined $ENV{$_} ? $ENV{$_} : $wildcard }
-        @{ _data($package)->{envs} }
-    ]);
-    return $envs->{$target} || {};
-}
-
-sub _value_any {
-    my $package = shift;
-    my $envs = _data($package)->{specific};
-    my $wildcard = _data($package)->{wildcard}{any};
-    my $key = __envs2key(_data($package)->{envs});
-    my %values;
-    for my $dataset (@{__any_dataset($key, $wildcard)}) {
-        my $compiled = __embeded($key, $dataset);
-        %values = ( %values, %{ $envs->{$compiled} || {} } );
-    }
-    return \%values;
-}
-
-sub _value_unset {
-    my $package = shift;
-    my $envs = _data($package)->{specific};
-    my $wildcard = _data($package)->{wildcard}{any};
-    my $key = __envs2key(_data($package)->{envs});
-    my %values;
-    for my $dataset (@{__any_dataset($key, $wildcard)}) {
-        my $compiled = __embeded($key, $dataset);
-        %values = ( %values, %{ $envs->{$compiled} || {} } );
-    }
-    return \%values;
-}
-
-sub _value {
-    my $package = shift;
-
-    my $specific = _value_specific($package);
-    my $any      = _value_any($package);
-
-    return {
-        %{ $any },
-        %{ $specific },
-    };
-}
-
 sub __envs2key {
     my $v = shift;
     $v = [$v] unless ref $v;
-    join '@#%@#', grep { $_ if ($_) } @{$v};
+    join DELIMITER(), map { defined $_ ? $_ : '' } @{$v};
 }
 
 sub __key2envs {
     my $f = shift;
-    [split '@#%@#', $f];
+    [split DELIMITER(), $f];
+}
+
+sub _match {
+    my ( $package, $target_envs ) = @_;
+
+    my $data = _data($package);
+
+    return +{
+        map  { %{ $_->as_hashref } }
+        grep { $_->match($target_envs) }
+        sort { $a->{order} - $b->{order} }
+        values %{ $data->{configs} }
+    };
 }
 
 1;
+
+package Config::ENV::Multi::ConfigInstance;
+use strict;
+use warnings;
+
+use List::MoreUtils qw/ all pairwise /;
+
+sub new {
+    my ( $class, %args ) = @_;
+
+    bless +{
+        order    => $args{order},
+        pattern  => $args{pattern},
+        hash     => $args{hash},
+        wildcard => $args{wildcard},
+    }, $class;
+}
+
+sub match {
+    my ( $self, $target ) = @_;
+
+    return all { $_ } pairwise {
+        $a eq $self->{wildcard}{any}   ?           1 :
+        $a eq $self->{wildcard}{unset} ? !defined $b :
+                                          defined $b && $b eq $a;
+    } @{ $self->{pattern} }, @{ $target };
+}
+
+sub as_hashref { $_[0]->{hash} }
+
+1;
+
 __END__
 
 =encoding utf-8
