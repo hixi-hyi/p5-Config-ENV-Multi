@@ -193,16 +193,7 @@ sub local :method {
     %{ $data->{cache} } = ();
 
     bless sub {
-        %hash = ();
-
-        # cleanup $data->{local}
-        my $threshold;
-        for my $i (reverse 0..$#{ $data->{local} }) {
-            last if %{ $data->{local}->[$i] };
-            $threshold = $i;
-        }
-        splice @{ $data->{local} }, -(@{ $data->{local} } - $threshold) if defined $threshold;
-
+        @{ $data->{local} } = grep { $_ != \%hash } @{ $data->{local} };
         %{ $data->{cache} } = ();
     }, 'Config::ENV::Multi::Local';
 }
