@@ -66,7 +66,7 @@
          "web" : "https://github.com/hixi-hyi/p5-Config-ENV-Multi"
       }
    },
-   "version" : "0.03",
+   "version" : "0.04",
    "x_authority" : "cpan:HIXI",
    "x_contributors" : [
       "Tanaka Tatsuya <ta.ts.yt@gmail.com>",
